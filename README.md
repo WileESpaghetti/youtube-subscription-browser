@@ -12,6 +12,14 @@ While developing you will also need to add "Test Users" from the "Audience" page
 the OAuth consent. See: https://www.youtube.com/watch?v=bkZns_VOB6Io
 
 ## Running
+
+### Initialize the database
+You will need to create the `youtube.sqlite` file and set up the database schema. The `init-db.go`
+script will run through the schema setup for you.
+```bash
+go run init-db.go
+```
+
 ```bash
 go run main.go
 ```
