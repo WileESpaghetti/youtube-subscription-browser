@@ -3,6 +3,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,7 +13,9 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 
+	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -116,6 +119,67 @@ func channelsListByUsername(service *youtube.Service, part string, forUsername s
 		response.Items[0].Statistics.ViewCount))
 }
 
+func listSubscriptions(y *youtube.Service, db *sql.DB) {
+
+	call := y.Subscriptions.List([]string{"snippet", "contentDetails", "id"}).
+		Mine(true)
+
+	var allSubscriptions []*youtube.Subscription
+
+	err := call.Pages(context.TODO(), func(page *youtube.SubscriptionListResponse) error {
+		allSubscriptions = append(allSubscriptions, page.Items...)
+		return nil
+	})
+
+	if err != nil {
+		log.Fatalf("Error listing subscriptions: %v", err)
+	}
+
+	if len(allSubscriptions) == 0 {
+		fmt.Println("No subscriptions found.")
+		return
+	}
+
+	channelIds := make([]string, 0, len(allSubscriptions))
+	for _, s := range allSubscriptions {
+		channelIds = append(channelIds, s.Snippet.ResourceId.ChannelId)
+	}
+
+	channels := make([]*youtube.Channel, 0, len(allSubscriptions))
+
+	apiIdLimit := 50 // FIXME not sure if this is documented somewhere, but I found it on a stack overflow
+	for page := range slices.Chunk(channelIds, apiIdLimit) {
+		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails"}).Id(page...)
+		err = call2.Pages(context.TODO(), func(page *youtube.ChannelListResponse) error {
+			channels = append(channels, page.Items...)
+			return nil
+		})
+		if err != nil {
+			log.Fatalf("Error listing channels: %v", err)
+		}
+	}
+
+	fmt.Println("Your Subscriptions:")
+	for _, subscription := range channels {
+		fmt.Printf("- %s (Channel ID: %s)\n", subscription.Snippet.Title, subscription.Id)
+
+		_, err = db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+			subscription.Id,
+			subscription.Snippet.Title,
+			subscription.Snippet.Description,
+			subscription.Snippet.CustomUrl,
+			subscription.BrandingSettings.Channel.Title,
+			subscription.BrandingSettings.Channel.Description,
+			subscription.Statistics.ViewCount,
+			subscription.Statistics.VideoCount,
+		)
+		if err != nil {
+			fmt.Printf("...unable to save: %s\n", err)
+		}
+	}
+
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -135,5 +199,13 @@ func main() {
 
 	handleError(err, "Error creating YouTube client")
 
-	channelsListByUsername(service, "snippet,contentDetails,statistics", "GoogleDevelopers")
+	dbFile := "youtube.sqlite"
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	//channelsListByUsername(service, "snippet,contentDetails,statistics", "GoogleDevelopers")
+	listSubscriptions(service, db)
 }
