@@ -122,7 +122,8 @@ func channelsListByUsername(service *youtube.Service, part string, forUsername s
 func listSubscriptions(y *youtube.Service, db *sql.DB) {
 
 	call := y.Subscriptions.List([]string{"snippet", "contentDetails", "id"}).
-		Mine(true)
+		Mine(true).
+		MaxResults(2000)
 
 	var allSubscriptions []*youtube.Subscription
 
@@ -148,9 +149,13 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 	channels := make([]*youtube.Channel, 0, len(allSubscriptions))
 
 	apiIdLimit := 50 // FIXME not sure if this is documented somewhere, but I found it on a stack overflow
+	channelIdCount := 0
 	for page := range slices.Chunk(channelIds, apiIdLimit) {
+		//FIXME add random sleep between pages
+		//FIXME check if id has already been saved in database (everything except the counts are probably pretty stable)
 		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails"}).Id(page...)
 		err = call2.Pages(context.TODO(), func(page *youtube.ChannelListResponse) error {
+			channelIdCount = channelIdCount + len(page.Items)
 			channels = append(channels, page.Items...)
 			return nil
 		})
@@ -159,9 +164,11 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 		}
 	}
 
+	insertCount := 0
 	fmt.Println("Your Subscriptions:")
 	for _, subscription := range channels {
-		fmt.Printf("- %s (Channel ID: %s)\n", subscription.Snippet.Title, subscription.Id)
+		insertCount += 1
+		fmt.Printf("- %d, %s (Channel ID: %s)\n", insertCount, subscription.Snippet.Title, subscription.Id)
 
 		_, err = db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
 			subscription.Id,
@@ -200,7 +207,7 @@ func main() {
 	handleError(err, "Error creating YouTube client")
 
 	dbFile := "youtube.sqlite"
-	db, err := sql.Open("sqlite3", dbFile)
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on", dbFile))
 	if err != nil {
 		panic(err)
 	}
