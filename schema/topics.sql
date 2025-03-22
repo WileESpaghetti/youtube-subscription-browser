@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS channels_topics (
 id INTEGER PRIMARY KEY,
     channel_id INTEGER,
     topic_id INTEGER,
+    UNIQUE (channel_id, topic_id) ON CONFLICT IGNORE,
     FOREIGN KEY(channel_id) REFERENCES channels(id),
     FOREIGN KEY(channel_id) REFERENCES channels(id)
 );
