@@ -1,6 +1,6 @@
 -- https://developers.google.com/youtube/v3/docs/channels#topicDetails.topicIds[]
 -- TODO wikipedia URL from topicDetails.topicCategories
-CREATE TABLE IF NOT EXISTS topics(
+CREATE TABLE IF NOT EXISTS topics (
     id INTEGER PRIMARY KEY,
     type VARCHAR(255), -- I'm OK with this not being normalized in a separate table
     topic_id VARCHAR(255) NOT NULL UNIQUE,
