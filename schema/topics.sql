@@ -13,7 +13,7 @@ id INTEGER PRIMARY KEY,
     topic_id INTEGER,
     UNIQUE (channel_id, topic_id) ON CONFLICT IGNORE,
     FOREIGN KEY(channel_id) REFERENCES channels(id),
-    FOREIGN KEY(channel_id) REFERENCES channels(id)
+    FOREIGN KEY(topic_id) REFERENCES topics(id)
 );
 
 -- Music
