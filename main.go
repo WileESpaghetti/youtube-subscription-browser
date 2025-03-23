@@ -5,7 +5,13 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/youtube/v3"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,12 +20,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"slices"
-
-	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/youtube/v3"
+	"strings"
 )
 
 const missingClientSecretsMessage = `
@@ -123,7 +124,7 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 
 	call := y.Subscriptions.List([]string{"snippet", "contentDetails", "id"}).
 		Mine(true).
-		MaxResults(2000)
+		MaxResults(25)
 
 	var allSubscriptions []*youtube.Subscription
 
@@ -169,6 +170,7 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 	for _, subscription := range channels {
 		insertCount += 1
 		fmt.Printf("- %d, %s (Channel ID: %s)\n", insertCount, subscription.Snippet.Title, subscription.Id)
+		fmt.Printf("- %d, %s ...(Topics ID: %s)\n", insertCount, subscription.TopicDetails.TopicIds, subscription.Id)
 
 		_, err = db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
 			subscription.Id,
@@ -183,8 +185,102 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 		if err != nil {
 			fmt.Printf("...unable to save: %s\n", err)
 		}
+
+		// TODO get channelID
+		channelID, err := getChannelID(db, subscription.Id)
+		if err != nil {
+			fmt.Printf("...unable to get channel row ID for subscription: %s\n", err)
+			continue // can not save topic/keyword associations if we do not have a channel
+		}
+
+		topicIDs, err := getTopicIDs(db, subscription.TopicDetails.TopicIds)
+		if err != nil {
+			fmt.Printf("...unable to get topic ids: %s\n", err)
+		}
+
+		err = saveTopicAssociations(db, channelID, topicIDs)
+		if err != nil {
+			fmt.Printf("...unable to save topic ids: %s\n", err)
+		}
+
+		// TODO split by spaces brandingSettings.channel.keywords insert missing keywords (duplicates will be ignored). refetch keywords and map to channels_keywords
+	}
+}
+
+func getChannelID(db *sql.DB, youtubeID string) (int, error) {
+	var id int
+
+	err := db.QueryRow("SELECT id FROM channels WHERE youtube_id = ?", youtubeID).
+		Scan(&id)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return id, err
+	case err != nil:
+		return id, err
+	default:
+		return id, nil
+	}
+}
+
+func saveTopicAssociations(db *sql.DB, channelID int, topicIDs []int) error {
+	if len(topicIDs) == 0 {
+		return nil
 	}
 
+	for _, topicID := range topicIDs {
+		result, err := db.Exec("INSERT INTO channels_topics(channel_id, topic_id) VALUES(?, ?)", channelID, topicID)
+		if err != nil {
+			return err
+		}
+
+		_, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getTopicIDs(db *sql.DB, topicIDs []string) ([]int, error) {
+	if len(topicIDs) == 0 {
+		return nil, nil
+	}
+
+	// handle IN clause placeholders
+	topicPlaceholders := strings.Repeat("?,", len(topicIDs))
+	topicPlaceholders = topicPlaceholders[:len(topicPlaceholders)-1] // strip off the trailing ,
+	args := make([]interface{}, 0, len(topicIDs))
+	for _, id := range topicIDs {
+		args = append(args, id)
+	}
+
+	queryTopicIDs := fmt.Sprintf("SELECT id FROM topics WHERE topic_id in (%s)", topicPlaceholders)
+	rows, err := db.Query(queryTopicIDs, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]int, 0, len(topicIDs))
+	for rows.Next() {
+		var topicID int
+		if err := rows.Scan(&topicID); err != nil {
+			return nil, err
+		}
+
+		ids = append(ids, topicID)
+	}
+
+	if rerr := rows.Close(); rerr != nil {
+		return nil, err
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
 }
 
 func main() {
