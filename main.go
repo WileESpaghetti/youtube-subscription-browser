@@ -4,6 +4,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -153,7 +154,6 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 	channelIdCount := 0
 	for page := range slices.Chunk(channelIds, apiIdLimit) {
 		//FIXME add random sleep between pages
-		//FIXME check if id has already been saved in database (everything except the counts are probably pretty stable)
 		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails"}).Id(page...)
 		err = call2.Pages(context.TODO(), func(page *youtube.ChannelListResponse) error {
 			channelIdCount = channelIdCount + len(page.Items)
@@ -203,7 +203,27 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 			fmt.Printf("...unable to save topic ids: %s\n", err)
 		}
 
-		// TODO split by spaces brandingSettings.channel.keywords insert missing keywords (duplicates will be ignored). refetch keywords and map to channels_keywords
+		keywords, err := splitKeywords(subscription.BrandingSettings.Channel.Keywords)
+		if err != nil {
+			fmt.Printf("...unable to split keywords: %s\n", err)
+		}
+
+		fmt.Printf("- %d, %s ...(Keywords: %#v)\n", insertCount, keywords, subscription.Id)
+
+		err = saveKeywords(db, keywords)
+		if err != nil {
+			fmt.Printf("...unable to save keywords: %s\n", err)
+		}
+
+		keywordIDs, err := getKeywordIDs(db, keywords)
+		if err != nil {
+			fmt.Printf("...unable to get keyword ids: %s\n", err)
+		}
+
+		err = saveKeywordAssociations(db, channelID, keywordIDs)
+		if err != nil {
+			fmt.Printf("...unable to save keyword ids: %s\n", err)
+		}
 	}
 }
 
@@ -220,6 +240,123 @@ func getChannelID(db *sql.DB, youtubeID string) (int, error) {
 	default:
 		return id, nil
 	}
+}
+
+func saveKeywordAssociations(db *sql.DB, channelID int, keywordIDs []int) error {
+	// FIXME since keyword should be unique we could probably do this with an insert with select/join to automatically
+	//  fetch the ids
+	if len(keywordIDs) == 0 {
+		return nil
+	}
+
+	for _, keywordID := range keywordIDs {
+		result, err := db.Exec("INSERT INTO channels_keywords(channel_id, keyword_id) VALUES(?, ?)", channelID, keywordID)
+		if err != nil {
+			return err
+		}
+
+		_, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func saveKeywords(db *sql.DB, keywords []string) error {
+	// TODO probably want to remove '#' from hashtag keywords at some point
+	// TODO seems like some people also use multiple hashtags as a single keyword. may want to additionally split that
+	if len(keywords) == 0 {
+		return nil
+	}
+
+	for _, k := range keywords {
+		result, err := db.Exec("INSERT INTO keywords(keyword) VALUES(?)", k)
+		if err != nil {
+			return err
+		}
+
+		_, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getKeywordIDs(db *sql.DB, keywords []string) ([]int, error) {
+	if len(keywords) == 0 {
+		return nil, nil
+	}
+
+	// handle IN clause placeholders
+	keywordPlaceholders := strings.Repeat("?,", len(keywords))
+	keywordPlaceholders = keywordPlaceholders[:len(keywordPlaceholders)-1] // strip off the trailing ,
+	args := make([]interface{}, 0, len(keywords))
+	for _, id := range keywords {
+		args = append(args, id)
+	}
+
+	queryTopicIDs := fmt.Sprintf("SELECT id FROM keywords WHERE keyword in (%s)", keywordPlaceholders)
+	rows, err := db.Query(queryTopicIDs, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]int, 0, len(keywords))
+	for rows.Next() {
+		var keywordID int
+		if err := rows.Scan(&keywordID); err != nil {
+			return nil, err
+		}
+
+		ids = append(ids, keywordID)
+	}
+
+	if rerr := rows.Close(); rerr != nil {
+		return nil, err
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+// splitKeywords splits the list of keywords provided by the YouTube data API.
+// The keywords are separated by a space, but if a keyword should contain
+// multiple words then those words will be quoted. This format allows us to
+// treat the keyword list as a space separated CSV record.
+func splitKeywords(s string) ([]string, error) {
+	if len(s) == 0 {
+		return nil, nil
+	}
+
+	keywords := make([]string, 0)
+
+	buf := strings.NewReader(s)
+
+	splitter := csv.NewReader(buf)
+	splitter.Comma = ' '
+
+	records, err := splitter.ReadAll()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	for _, r := range records {
+		// there should only be one record, but we'll assume that's not the case
+		for _, k := range r {
+			keywords = append(keywords, strings.ToLower(k))
+		}
+	}
+
+	return keywords, nil
 }
 
 func saveTopicAssociations(db *sql.DB, channelID int, topicIDs []int) error {
