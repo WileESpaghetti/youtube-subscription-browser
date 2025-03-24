@@ -148,14 +148,20 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 		channelIds = append(channelIds, s.Snippet.ResourceId.ChannelId)
 	}
 
-	channels := make([]*youtube.Channel, 0, len(allSubscriptions))
+	// break here
+	populateDatabase(y, db, channelIds)
+}
+
+func populateDatabase(y *youtube.Service, db *sql.DB, channelIDs []string) {
+	channels := make([]*youtube.Channel, 0, len(channelIDs))
 
 	apiIdLimit := 50 // FIXME not sure if this is documented somewhere, but I found it on a stack overflow
 	channelIdCount := 0
-	for page := range slices.Chunk(channelIds, apiIdLimit) {
-		//FIXME add random sleep between pages
+	for page := range slices.Chunk(channelIDs, apiIdLimit) {
+		// FIXME add random sleep between pages
+		// FIXME how to detect if a channel has been removed? API returns no data in that case, which is confusing when counts don't align
 		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails"}).Id(page...)
-		err = call2.Pages(context.TODO(), func(page *youtube.ChannelListResponse) error {
+		err := call2.Pages(context.TODO(), func(page *youtube.ChannelListResponse) error {
 			channelIdCount = channelIdCount + len(page.Items)
 			channels = append(channels, page.Items...)
 			return nil
@@ -170,9 +176,8 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 	for _, subscription := range channels {
 		insertCount += 1
 		fmt.Printf("- %d, %s (Channel ID: %s)\n", insertCount, subscription.Snippet.Title, subscription.Id)
-		fmt.Printf("- %d, %s ...(Topics ID: %s)\n", insertCount, subscription.TopicDetails.TopicIds, subscription.Id)
 
-		_, err = db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+		_, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
 			subscription.Id,
 			subscription.Snippet.Title,
 			subscription.Snippet.Description,
@@ -193,14 +198,19 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 			continue // can not save topic/keyword associations if we do not have a channel
 		}
 
-		topicIDs, err := getTopicIDs(db, subscription.TopicDetails.TopicIds)
-		if err != nil {
-			fmt.Printf("...unable to get topic ids: %s\n", err)
-		}
+		if subscription.TopicDetails != nil { // work around nil pointer panic on some stuff
+			fmt.Printf("- %d, %s ...(Topics ID: %s)\n", insertCount, subscription.TopicDetails.TopicIds, subscription.Id)
+			topicIDs, err := getTopicIDs(db, subscription.TopicDetails.TopicIds)
+			if err != nil {
+				fmt.Printf("...unable to get topic ids: %s\n", err)
+			}
 
-		err = saveTopicAssociations(db, channelID, topicIDs)
-		if err != nil {
-			fmt.Printf("...unable to save topic ids: %s\n", err)
+			err = saveTopicAssociations(db, channelID, topicIDs)
+			if err != nil {
+				fmt.Printf("...unable to save topic ids: %s\n", err)
+			}
+		} else {
+			fmt.Printf("...topic information not found: %#v\n", subscription)
 		}
 
 		keywords, err := splitKeywords(subscription.BrandingSettings.Channel.Keywords)
@@ -420,6 +430,35 @@ func getTopicIDs(db *sql.DB, topicIDs []string) ([]int, error) {
 	return ids, nil
 }
 
+func getChannelsFromTakeout(file string) ([]string, error) {
+	if len(file) == 0 {
+		// no file given
+		return nil, errors.New("no input file given")
+	}
+
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	splitter := csv.NewReader(f)
+
+	records, err := splitter.ReadAll()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	channels := make([]string, 0, len(records))
+
+	for _, r := range records[1:] {
+		channels = append(channels, r[0])
+	}
+
+	return channels, nil
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -446,6 +485,17 @@ func main() {
 	}
 	defer db.Close()
 
-	//channelsListByUsername(service, "snippet,contentDetails,statistics", "GoogleDevelopers")
-	listSubscriptions(service, db)
+	if len(os.Args) > 1 {
+		fmt.Printf("Using CSV file: %#v\n", os.Args)
+		channels, err := getChannelsFromTakeout(os.Args[1])
+		fmt.Printf("channel cound: %d\n", len(channels))
+		if err != nil {
+			fmt.Printf("can not read input file: '%s':, %s\n", os.Args[1], err)
+			os.Exit(1)
+		}
+		populateDatabase(service, db, channels)
+	} else {
+		//channelsListByUsername(service, "snippet,contentDetails,statistics", "GoogleDevelopers")
+		listSubscriptions(service, db)
+	}
 }
