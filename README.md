@@ -11,8 +11,6 @@ The `client_secret.json` file will need to be in the same directory as the final
 While developing you will also need to add "Test Users" from the "Audience" page after setting up
 the OAuth consent. See: https://www.youtube.com/watch?v=bkZns_VOB6Io
 
-## Running
-
 ### Initialize the database
 You will need to create the `youtube.sqlite` file and set up the database schema. The `init-db.go`
 script will run through the schema setup for you.
@@ -54,3 +52,18 @@ After running, open the given URL and give access to the API. After authorizing,
 that gave me a not found error. I just had to copy the `code` parameter from the URL and copy/paste it into the 
 terminal and press enter. I might have used the wrong client type, but "other" wasn't available like the quickstart
 said to use. This is needed even if using a CSV file in order to get keyword, topic, and other channel data.
+
+## Development
+
+### Initialize Frontend
+```bash
+export GITROOT=$(git rev-parse --show-toplevel)
+cd $GITROOT/frontend
+npm install
+```
+
+### Start Frontend
+```bash
+# $GITROOT/frontend
+npm run dev
+```
