@@ -17,7 +17,7 @@ the OAuth consent. See: https://www.youtube.com/watch?v=bkZns_VOB6Io
 You will need to create the `youtube.sqlite` file and set up the database schema. The `init-db.go`
 script will run through the schema setup for you.
 ```bash
-go run init-db.go
+go run scripts/init-db/main.go
 ```
 
 ### Use the YouTube Data API to Populate the Database
@@ -25,7 +25,7 @@ There seems to be a quirk that the YouTube data api will only return 1000 subscr
 it is recommended you use Google Takeout to get your list of subscriptions as a CSV.
 
 ```bash
-go run main.go
+go run scripts/fill-db/main.go
 ```
 
 ### Use a CSV file to Populate the Database
