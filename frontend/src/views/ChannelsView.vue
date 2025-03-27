@@ -1,6 +1,7 @@
 <template>
   <div class="about">
     <h1>This is a channels page</h1>
+    <channel-table :channels="post || []"></channel-table>
     {{post}}
   </div>
 </template>
@@ -8,6 +9,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getChannels } from '../api'
+import ChannelTable from "@/components/ChannelTable.vue";
 
 const route = useRoute()
 
