@@ -46,6 +46,8 @@ console.log('end watcher');
       :columnDefs="columnDefs"
        style="height: 500px; width: 100%"
       :rowData="rowData"
+      :paginationAutoPageSize="true"
+      :pagination="true"
     ></ag-grid-vue>
   </div>
 </template>

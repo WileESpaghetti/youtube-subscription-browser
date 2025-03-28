@@ -5,7 +5,7 @@
     <channel-table v-if="data" :channels="data || {items: []}"></channel-table>
   </div>
 </template>
-<script setup>
+<script setup lang="ts">
 import ChannelTable from "@/components/ChannelTable.vue";
 import {useFetch} from "@vueuse/core";
 
@@ -18,6 +18,8 @@ const { data, error, isFetching, execute, abort } = useFetch(`/api/channels`);
     min-height: 100vh;
     display: flex;
     align-items: center;
+    flex-direction: column;
+    justify-content: center;
   }
 }
 </style>
