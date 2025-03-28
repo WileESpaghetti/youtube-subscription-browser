@@ -8,7 +8,7 @@ import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const props = defineProps<{
-  channels: array
+  channels
 }>();
 
 const columnDefs = ref([]);
@@ -18,29 +18,35 @@ const onGridReady = (params: GridReadyEvent) => {
   gridApi.value = params.api;
 };
 watch( ()=> props.channels, (newVal, oldVal)=> {
-  console.log(newVal, oldVal);
 
-columnDefs.value = newVal && newVal.length ? Object.keys(newVal[0]).map(k => {return {field: k}}) : [];
-rowData.value = newVal || [];
+  if (typeof newVal === 'string') {
+    newVal = JSON.parse(newVal);
+  }
+
+  console.log('watcher called');
+  console.log('new: %o, old: %o', newVal, oldVal);
+
+columnDefs.value = newVal.items && newVal.items.length ? Object.keys(newVal.items[0]).map(k => {return {field: k}}) : [];
+rowData.value = newVal.items || [];
 // if (gridApi.value!) {
 //   gridApi.value!.redrawCells();
 //   gridApi.value!.redrawRows();
 // }
 console.log(columnDefs.value);
-  console.log(rowData.value);
+console.log(rowData.value);
+console.log('end watcher');
 
 }, {immediate:true, deep: true});
 </script>
 
 <template>
-  <div>
-    <ag-grid-vue v-if="channels.length"
+  <div style="width:100%;">
+    <ag-grid-vue
       class="ag-theme-alpine"
       :columnDefs="columnDefs"
-       domLayout="autoHeight"
+       style="height: 500px; width: 100%"
       :rowData="rowData"
     ></ag-grid-vue>
-    @grid-ready="gridReady"
   </div>
 </template>
 

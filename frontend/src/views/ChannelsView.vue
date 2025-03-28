@@ -1,38 +1,15 @@
 <template>
   <div class="about">
     <h1>This is a channels page</h1>
-    <channel-table :channels="post || []"></channel-table>
-    {{post}}
+    <h2 v-if="isFetching">Loading data...</h2>
+    <channel-table v-if="data" :channels="data || {items: []}"></channel-table>
   </div>
 </template>
 <script setup>
-import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { getChannels } from '../api'
 import ChannelTable from "@/components/ChannelTable.vue";
+import {useFetch} from "@vueuse/core";
 
-const route = useRoute()
-
-const loading = ref(false)
-const post = ref(null)
-const error = ref(null)
-
-// watch the params of the route to fetch the data again
-watch(() => route.params.id, fetchData, { immediate: true })
-
-async function fetchData() {
-  error.value = post.value = null
-  loading.value = true
-
-  try {
-    // replace `getPost` with your data fetching util / API wrapper
-    post.value = await getChannels()
-  } catch (err) {
-    error.value = err.toString()
-  } finally {
-    loading.value = false
-  }
-}
+const { data, error, isFetching, execute, abort } = useFetch(`/api/channels`);
 </script>
 
 <style>
