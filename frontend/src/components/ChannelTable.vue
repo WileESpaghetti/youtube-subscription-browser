@@ -26,7 +26,7 @@ watch( ()=> props.channels, (newVal, oldVal)=> {
   console.log('watcher called');
   console.log('new: %o, old: %o', newVal, oldVal);
 
-columnDefs.value = newVal.items && newVal.items.length ? Object.keys(newVal.items[0]).map(k => {return {field: k}}) : [];
+columnDefs.value = newVal.items && newVal.items.length ? Object.keys(newVal.items[0]).map(k => {return {field: k, filter: true, floatingFilter: true}}) : [];
 rowData.value = newVal.items || [];
 // if (gridApi.value!) {
 //   gridApi.value!.redrawCells();
