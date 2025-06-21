@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS keywords (
 );
 
 CREATE TABLE IF NOT EXISTS channels_keywords (
+    -- FIXME should there be a UNIQUE constraint on the IDs? Not an issue yet because we only imort channels once
     id INTEGER PRIMARY KEY,
     channel_id INTEGER,
     keyword_id INTEGER,
