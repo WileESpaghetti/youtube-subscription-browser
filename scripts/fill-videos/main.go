@@ -494,6 +494,7 @@ func main() {
 		}
 
 		err := filepath.WalkDir(f, func(path string, d fs.DirEntry, err error) error {
+			// TODO skip already imorted videos
 			if d.IsDir() {
 				return err
 			}

@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strconv"
+	"strings"
 )
 
 type Page struct {
@@ -37,6 +39,103 @@ type Channel struct {
 	SubscriberCount     int64  `json:"subscriber_count"`
 	VideoCount          int64  `json:"video_count"`
 	IsArchived          bool   `json:"is_archived"`
+}
+
+type Video struct {
+	ID          string `json:"id"`
+	YouTubeID   string `json:"youtube_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ChannelID   string `json:"channel_id"`
+	Duration    int64  `json:"duration"`
+	WebpageURL  string `json:"webpage_url"`
+	UploadedAt  int64  `json:"timestamp"`
+	//Availability     string          `json:"availability"`
+	OriginalURL string `json:"original_url"`
+	FullTitle   string `json:"fulltitle"`
+	//Epoch            int64           `json:"epoch"`
+	//Format           string          `json:"format"`
+	//FormatID         string          `json:"format_id"`
+	//FormatNote       string          `json:"format_note"`
+	//Ext              string          `json:"ext"`
+	//FileSize         int64           `json:"filesize_approx"`
+	//TBR              float32         `json:"tbr"`
+	Width      int64  `json:"width"`
+	Height     int64  `json:"height"`
+	Resolution string `json:"resolution"`
+	//DynamicRange     string          `json:"dynamic_range"`
+	//VideoCodec       string          `json:"vcodec"`
+	//VBR              float32         `json:"vbr"`
+	//AudioCodec       string          `json:"acodec"`
+	AspectRatio float32 `json:"aspect_ratio"` // < 1 = shorts/vert?
+	//ABR              float32         `json:"abr"`
+	//ASR              int64           `json:"asr"`
+	//Categories       []string        `json:"categories"`
+	//Tags             []string        `json:"tags"`
+	//Formats          []YouTubeFormat `json:"formats"`
+	//RequestedFormats []YouTubeFormat `json:"requested_formats"`
+}
+
+func GetVideos(ctx context.Context, db *sql.DB, channelID int, fromTimestamp int) ([]Video, error) {
+	whereClauses := make([]string, 0, 2)
+	whereParams := make([]interface{}, 0, 2)
+
+	if channelID > 0 {
+		whereClauses = append(whereClauses, "channel_id = ?")
+		whereParams = append(whereParams, channelID)
+	}
+
+	if fromTimestamp > 0 {
+		whereClauses = append(whereClauses, "uploaded_at > ?")
+		whereParams = append(whereParams, fromTimestamp)
+	}
+
+	stmt := "SELECT id, youtube_id, title, full_title, description, channel_id, width, height, resolution, duration, webpage_url, original_url, uploaded_at, aspect_ratio FROM videos" // mostly ignoring all of the format related fields
+	if len(whereClauses) > 0 {
+		stmt += " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	fmt.Println(stmt)
+
+	rows, err := db.QueryContext(ctx, stmt, whereParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var videos []Video
+	for rows.Next() {
+		v := Video{}
+
+		if err := rows.Scan(
+			&v.ID,
+			&v.YouTubeID,
+			&v.Title,
+			&v.FullTitle,
+			&v.Description,
+			&v.ChannelID,
+			&v.Width,
+			&v.Height,
+			&v.Resolution,
+			&v.Duration,
+			&v.WebpageURL,
+			&v.OriginalURL,
+			&v.UploadedAt,
+			&v.AspectRatio); err != nil {
+			return nil, err
+		}
+
+		videos = append(videos, v)
+	}
+
+	if rerr := rows.Close(); rerr != nil {
+		return nil, err
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return videos, nil
 }
 
 func GetChannels(ctx context.Context, db *sql.DB) ([]Channel, error) {
