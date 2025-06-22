@@ -62,6 +62,36 @@ func getAllChannels(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func getChannel(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := api.ListResponse{} // FIXME single item response
+
+		if r.Method != "GET" {
+			response.Error = api.Error{
+				Status: http.StatusMethodNotAllowed,
+				Code:   "CH405",
+				Reason: "method not allowed",
+			}
+			jsonError(w, response, http.StatusMethodNotAllowed)
+			return
+		}
+
+		c, err := api.GetChannel(r.Context(), db, r.PathValue("id"))
+		if err != nil {
+			response.Error = api.Error{
+				Status: http.StatusMethodNotAllowed,
+				Code:   "CH500",
+				Reason: err.Error(),
+			}
+			jsonError(w, response, http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(c)
+	}
+}
+
 func main() {
 	// initialize DB
 	dbFile := "youtube.sqlite"
@@ -76,6 +106,7 @@ func main() {
 	http.Handle("/", fs)
 
 	http.Handle("/api/channels", getAllChannels(db))
+	http.Handle("/api/channels/{id}", getChannel(db))
 
 	log.Printf("Listening on %s...", port)
 	err = http.ListenAndServe(port, nil)

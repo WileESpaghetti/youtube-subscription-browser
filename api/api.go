@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"strconv"
 )
 
 type Page struct {
@@ -75,4 +76,31 @@ func GetChannels(ctx context.Context, db *sql.DB) ([]Channel, error) {
 	}
 
 	return channels, nil
+}
+
+func GetChannel(ctx context.Context, db *sql.DB, channelID string) (Channel, error) {
+	var c Channel
+
+	id, err := strconv.ParseInt(channelID, 10, 64)
+	if err != nil {
+		return c, err
+	}
+
+	err = db.QueryRowContext(ctx, "SELECT id, youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count, is_archived FROM channels WHERE id = ?", id).
+		Scan(
+			&c.ID,
+			&c.YouTubeID,
+			&c.Title,
+			&c.Description,
+			&c.CustomURL,
+			&c.BrandingTitle,
+			&c.BrandingDescription,
+			&c.SubscriberCount,
+			&c.VideoCount,
+			&c.IsArchived)
+	if err != nil {
+		return c, err
+	}
+
+	return c, nil
 }
