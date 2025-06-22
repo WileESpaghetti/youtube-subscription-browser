@@ -6,18 +6,18 @@
     <template v-else>
       <h1>{{data?.title}}</h1>
       <p>{{data?.description}}</p>
+      <VideoChart :channelId="Number(route.params.id)"></VideoChart>
     </template>
   </div>
 </template>
 <script setup lang="ts">
 import {ref} from 'vue';
-import ChannelTable from "@/components/ChannelTable.vue";
 import {useFetch} from "@vueuse/core";
 import {useRoute} from 'vue-router'
+import VideoChart from "@/components/VideoChart.vue";
 
 const route = useRoute();
 const { data, error, isFetching, execute, abort } = useFetch(`/api/channels/${route.params.id}`).json();
-const mydata = ref(data);
 </script>
 
 <style>
