@@ -27,7 +27,7 @@ const router = createRouter({
     },
     {
       path: '/channels/:id',
-      name: 'channels',
+      name: 'viewChannel',
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
