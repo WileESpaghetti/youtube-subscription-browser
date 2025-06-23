@@ -10,15 +10,21 @@ const props = defineProps<{
   channelId: number
 }>()
 
-// FIXME need to handle past 12 months not just current year, will need to tweak the data mapping function to keep track of both year and month so sort order is good
-const months = [...Array(11).keys()].map(key => new Date(0, key).toLocaleString('en', { month: 'long' }));
-const thisYear = new Date().getUTCFullYear();
-const from = Date.UTC(thisYear,0,1) / 1000;
+// TODO make date range configuratble to allow people to zoom in/out
+const months = [...Array(12).keys()].map(key => new Date(0, key).toLocaleString('en', { month: 'long' }));
+const today = new Date();
+const thisYear = today.getUTCFullYear();
+const thisMonth = today.getUTCMonth();
+
+const last12Months = months.slice(thisMonth + 1, months.length).concat(months.slice(0, thisMonth + 1));
+
+const from = Date.UTC(thisYear - 1, thisMonth + 1  ,1) / 1000;
+console.log('from: ', from);
 const { data, error, isFetching, execute, abort } = useFetch(`/api/videos?channel_id=${props.channelId}&from=${from}`).json();
 
 const chartData = computed(() => {
   return {
-    labels: months,
+    labels: last12Months,
     datasets: [{
       label: 'Videos by Month', data: data?.value?.items?.reduce((a, v) => {
         console.log('hello');
