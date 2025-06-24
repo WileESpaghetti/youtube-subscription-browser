@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import {type Ref, ref, shallowRef, watch} from 'vue'
-import {AgGridVue, GridApi} from "ag-grid-vue3";
+import {AgGridVue} from "ag-grid-vue3";
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 import {useRouter} from "vue-router";
 import type {ColDef, ColGroupDef} from 'ag-grid-community';
+import {
+  ClientSideRowModelModule,
+  DateFilterModule,
+  ExternalFilterModule,
+  type GridApi,
+  type GridOptions,
+  type GridReadyEvent,
+  type IDateFilterParams,
+  type IRowNode,
+  type IsExternalFilterPresentParams,
+  NumberFilterModule,
+  ValidationModule,
+} from "ag-grid-community";
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -16,6 +29,7 @@ const columnDefs: Ref<ColDef[]|ColGroupDef[]|null> = ref(null);
 const rowData = ref([]);
 const gridApi = shallowRef<GridApi | null>(null);
 const onGridReady = (params: GridReadyEvent) => {
+  console.log('gridReady');
   gridApi.value = params.api;
 };
 const router = useRouter();
@@ -62,17 +76,37 @@ console.log(rowData.value);
 console.log('end watcher');
 
 }, {immediate:true, deep: true});
+
+const tagFilter = ref("")
+const isExternalFilterPresent: () => boolean = () => {
+  // if ageType is not everyone, then we are filtering
+  return !!tagFilter.value
+};
+
+const doesExternalFilterPass: (node: IRowNode<any>) => boolean = (
+  node: IRowNode<any>,
+) => {
+  return node.data.title.toLowerCase().includes(tagFilter.value.toLowerCase());
+};
+
+watch(tagFilter, async (oldVal, newVal) => {
+    gridApi.value!.onFilterChanged();
+});
 </script>
 
 <template>
+  <input type="text" name="tag-filter" v-model="tagFilter">
   <div style="width:100%;">
     <ag-grid-vue
       class="ag-theme-alpine"
       :columnDefs="columnDefs"
+      @grid-ready="onGridReady"
        style="height: 500px; width: 100%"
       :rowData="rowData"
       :paginationAutoPageSize="true"
       :pagination="true"
+      :isExternalFilterPresent="isExternalFilterPresent"
+      :doesExternalFilterPass="doesExternalFilterPass"
     ></ag-grid-vue>
   </div>
 </template>
