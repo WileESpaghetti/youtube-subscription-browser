@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, shallowRef, watch } from 'vue'
+import {type Ref, ref, shallowRef, watch} from 'vue'
 import {AgGridVue, GridApi} from "ag-grid-vue3";
-import vue from "@vitejs/plugin-vue";
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+import {useRouter} from "vue-router";
+import type {ColDef, ColGroupDef} from 'ag-grid-community';
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -11,12 +12,14 @@ const props = defineProps<{
   channels
 }>();
 
-const columnDefs = ref([]);
+const columnDefs: Ref<ColDef[]|ColGroupDef[]|null> = ref(null);
 const rowData = ref([]);
 const gridApi = shallowRef<GridApi | null>(null);
 const onGridReady = (params: GridReadyEvent) => {
   gridApi.value = params.api;
 };
+const router = useRouter();
+
 watch( ()=> props.channels, (newVal, oldVal)=> {
 
   if (typeof newVal === 'string') {
@@ -26,7 +29,29 @@ watch( ()=> props.channels, (newVal, oldVal)=> {
   console.log('watcher called');
   console.log('new: %o, old: %o', newVal, oldVal);
 
-columnDefs.value = newVal.items && newVal.items.length ? Object.keys(newVal.items[0]).map(k => {return {field: k, filter: true, floatingFilter: true}}) : [];
+columnDefs.value = newVal.items && newVal.items.length ? Object.keys(newVal.items[0]).map(k => {
+  let opts: ColDef = {
+    field: k, filter: true, floatingFilter: true
+  };
+  if (k === 'title') {
+    opts.cellRenderer = (params) => {
+      const route = {
+        name: "viewChannel",
+        params: { id: params.data.id }
+      };
+
+      const link = document.createElement("a");
+      link.href = router.resolve(route).href;
+      link.innerText = params.value;
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        router.push(route);
+      });
+      return link;
+    }
+  }
+  return opts;
+}) : null; // Floating filter might be higher level in the ag-grid options
 rowData.value = newVal.items || [];
 // if (gridApi.value!) {
 //   gridApi.value!.redrawCells();
