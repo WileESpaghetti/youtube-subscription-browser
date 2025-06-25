@@ -88,12 +88,12 @@ INSERT OR IGNORE INTO topics(type, topic_id, description) VALUES
 
 -- Society
 INSERT OR IGNORE INTO topics(type, topic_id, description) VALUES
-('society', '/m/098wr', ' 	Society (parent topic)'),
-('society', '/m/09s1f', ' 	Business'),
-('society', '/m/0kt51', ' 	Health'),
-('society', '/m/01h6rj', ' 	Military'),
-('society', '/m/05qt0', ' 	Politics'),
-('society', '/m/06bvp', ' 	Religion');
+('society', '/m/098wr', 'Society (parent topic)'),
+('society', '/m/09s1f', 'Business'),
+('society', '/m/0kt51', 'Health'),
+('society', '/m/01h6rj', 'Military'),
+('society', '/m/05qt0', 'Politics'),
+('society', '/m/06bvp', 'Religion');
 
 -- Other
 INSERT OR IGNORE INTO topics(type, topic_id, description) VALUES
