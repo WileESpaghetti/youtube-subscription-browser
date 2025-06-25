@@ -326,6 +326,7 @@ func getVideoID(ctx context.Context, db *sql.DB, youtubeID string) (int, error) 
 }
 
 func saveVideo(ctx context.Context, db *sql.DB, v *Video) error {
+	// TODO skip already imorted videos
 	fmt.Printf("%s: saving video...\n", v.YouTubeID)
 
 	channelID, err := getChannelID(db, v.ChannelID)
@@ -471,6 +472,43 @@ func saveVideo(ctx context.Context, db *sql.DB, v *Video) error {
 	return nil
 }
 
+func readJson(ctx context.Context, db *sql.DB) fs.WalkDirFunc {
+	return func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return err
+		}
+
+		if filepath.Ext(d.Name()) != ".json" {
+			return err
+		}
+
+		data, fileErr := os.Open(path)
+		if err != nil {
+			return errors.Join(err, fileErr)
+		}
+		defer data.Close()
+
+		var o Video // consider data dirty because we could have random json files
+		decoder := json.NewDecoder(data)
+		decodeErr := decoder.Decode(&o)
+		if err != nil {
+			return errors.Join(err, decodeErr)
+		}
+
+		if o.Type != "video" {
+			// I have playlist JSON files mixed in
+			return err
+		}
+
+		videoErr := saveVideo(ctx, db, &o)
+		if err != nil {
+			return errors.Join(err, videoErr)
+		}
+
+		return err
+	}
+}
+
 func main() {
 	if len(os.Args) <= 1 {
 		// TODO show help
@@ -493,41 +531,7 @@ func main() {
 			continue
 		}
 
-		err := filepath.WalkDir(f, func(path string, d fs.DirEntry, err error) error {
-			// TODO skip already imorted videos
-			if d.IsDir() {
-				return err
-			}
-
-			if filepath.Ext(d.Name()) != ".json" {
-				return err
-			}
-
-			data, fileErr := os.Open(path)
-			if err != nil {
-				return errors.Join(err, fileErr)
-			}
-			defer data.Close()
-
-			var o Video // consider data dirty because we could have random json files
-			decoder := json.NewDecoder(data)
-			decodeErr := decoder.Decode(&o)
-			if err != nil {
-				return errors.Join(err, decodeErr)
-			}
-
-			if o.Type != "video" {
-				// I have playlist JSON files mixed in
-				return err
-			}
-
-			videoErr := saveVideo(ctx, db, &o)
-			if err != nil {
-				return errors.Join(err, videoErr)
-			}
-
-			return err
-		})
+		err := filepath.WalkDir(f, readJson(ctx, db))
 
 		fmt.Println("-----------------------------------------------")
 		fmt.Printf("finished importing videos from: %s\n", f)
