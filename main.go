@@ -20,6 +20,50 @@ func jsonError(w http.ResponseWriter, err interface{}, status int) {
 	_ = json.NewEncoder(w).Encode(err)
 }
 
+func getVideoStatsByChannelId(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := api.ListResponse{} // FIXME single item response
+
+		if r.Method != "GET" {
+			response.Error = api.Error{
+				Status: http.StatusMethodNotAllowed,
+				Code:   "CH405",
+				Reason: "method not allowed",
+			}
+			jsonError(w, response, http.StatusMethodNotAllowed)
+			return
+		}
+
+		// channel_id parameter
+		sChannelID := r.PathValue("id")
+		channelID, err := strconv.Atoi(sChannelID)
+		if len(sChannelID) != 0 && err != nil {
+			response.Error = api.Error{
+				Status: http.StatusBadRequest,
+				Code:   "CH400",
+				Reason: "channel_id is invalid",
+			}
+			jsonError(w, response, http.StatusServiceUnavailable)
+			return
+		}
+
+		c, err := api.GetChannelVideoStats(r.Context(), db, channelID)
+		if err != nil {
+			response.Error = api.Error{
+				Status: http.StatusMethodNotAllowed,
+				Code:   "CH500",
+				Reason: err.Error(),
+			}
+			jsonError(w, response, http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(c)
+
+	}
+}
+
 func getAllVideos(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		response := api.ListResponse{}
@@ -176,6 +220,7 @@ func main() {
 
 	http.Handle("/api/channels", getAllChannels(db))
 	http.Handle("/api/channels/{id}", getChannel(db))
+	http.Handle("/api/channels/{id}/video_stats", getVideoStatsByChannelId(db))
 	http.Handle("/api/videos", getAllVideos(db))
 
 	log.Printf("Listening on %s...", port)

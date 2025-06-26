@@ -76,6 +76,59 @@ type Video struct {
 	//RequestedFormats []YouTubeFormat `json:"requested_formats"`
 }
 
+type ChannelVideoStats struct {
+	ChannelID             int    `json:"channel_id"`
+	ChannelTitle          string `json:"channel_title"`
+	TotalVideos           int    `json:"total_videos"`
+	TotalVideosArchived   int    `json:"total_videos_archived"`
+	HasArchive            bool   `json:"has_archive"`
+	HasCompleteArchive    bool   `json:"has_complete_archive"`
+	LatestVideoUploadDate int    `json:"latest_video_upload_date"`
+	LatestVideoYouTubeID  string `json:"latest_video_youtube_id"`
+}
+
+func GetChannelVideoStats(ctx context.Context, db *sql.DB, channelID int) (ChannelVideoStats, error) {
+	var cvs ChannelVideoStats
+
+	err := db.QueryRowContext(ctx, `
+SELECT
+    channels.id AS channel_id,
+    channels.title,
+    channels.video_count AS total_videos,
+    COALESCE(archived_videos.archived_total, 0) AS total_videos_archived,
+    (CASE WHEN archived_videos.archived_total > 0 THEN 1 ELSE 0 END) AS has_archive, -- FIXME need to check when no videos
+    (CASE WHEN channels.video_count = archived_total THEN 1 ELSE 0 END) AS has_complete_archive,
+    ranked_videos.uploaded_at AS lastest_video_upload_date,
+    ranked_videos.youtube_id AS lastest_video_youtube_id
+FROM channels
+LEFT JOIN (SELECT * FROM (
+         SELECT
+             youtube_id,
+             channel_id,
+             uploaded_at,
+             ROW_NUMBER() OVER (PARTITION BY channel_id ORDER BY uploaded_at DESC) as rn
+         FROM videos
+     )
+WHERE rn = 1)
+    AS ranked_videos ON channels.id = ranked_videos.channel_id
+         LEFT JOIN (SELECT channel_id, COUNT(*) AS archived_total FROM videos GROUP BY videos.channel_id) archived_videos ON archived_videos.channel_id = channels.id
+WHERE channels.id = ?
+`, channelID).Scan(
+		&cvs.ChannelID,
+		&cvs.ChannelTitle,
+		&cvs.TotalVideos,
+		&cvs.TotalVideosArchived,
+		&cvs.HasArchive,
+		&cvs.HasCompleteArchive,
+		&cvs.LatestVideoUploadDate,
+		&cvs.LatestVideoYouTubeID)
+	if err != nil {
+		return cvs, err
+	}
+
+	return cvs, nil
+}
+
 func GetVideos(ctx context.Context, db *sql.DB, channelID int, fromTimestamp int) ([]Video, error) {
 	whereClauses := make([]string, 0, 2)
 	whereParams := make([]interface{}, 0, 2)
