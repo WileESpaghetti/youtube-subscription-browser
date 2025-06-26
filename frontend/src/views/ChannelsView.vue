@@ -1,15 +1,21 @@
 <template>
   <div class="about">
     <h1>This is a channels page</h1>
-    <h2 v-if="isFetching">Loading data...</h2>
+    <h2 v-if="isFetching">Loading channels...</h2>
     <channel-table v-if="data" :channels="data || {items: []}"></channel-table>
   </div>
 </template>
+
 <script setup lang="ts">
 import ChannelTable from "@/components/ChannelTable.vue";
 import {useFetch} from "@vueuse/core";
+import {onUnmounted} from "vue";
 
-const { data, error, isFetching, execute, abort } = useFetch(`/api/channels`);
+const { data, error, isFetching, abort } = useFetch(`/api/channels`);
+
+onUnmounted(() => {
+  abort()
+})
 </script>
 
 <style>
