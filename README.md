@@ -15,6 +15,7 @@ the OAuth consent. See: https://www.youtube.com/watch?v=bkZns_VOB6Io
 You will need to create the `youtube.sqlite` file and set up the database schema. The `init-db.go`
 script will run through the schema setup for you.
 ```bash
+touch youtube.sqlite
 go run scripts/init-db/main.go
 ```
 
@@ -75,6 +76,7 @@ npm install
 
 ### Start Frontend
 ```bash
-# $GITROOT/frontend
+export GITROOT=$(git rev-parse --show-toplevel)
+$GITROOT/frontend
 npm run dev
 ```
