@@ -200,8 +200,10 @@ func getChannel(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		resp := api.ItemResponse{Item: c}
+
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(c)
+		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
 

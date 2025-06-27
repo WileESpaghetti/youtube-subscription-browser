@@ -5,12 +5,12 @@
     </template>
 
     <template v-else>
-      <h1>{{data?.title}}</h1>
-      <p>{{data?.description}}</p>
+      <h1>{{channel?.title}}</h1>
+      <p>{{channel?.description}}</p>
 
       <h2>Details</h2>
       <ul v-if="statData">
-        <li>Total Videos: {{data?.video_count}}</li>
+        <li>Total Videos: {{channel?.video_count}}</li>
         <li>{{statData?.has_archive ? `Archived: ${statData?.total_videos_archived}` : 'Not Archived' }}</li>
         <li>Last Upload Date: {{lastUploadDate}}</li>
       </ul>
@@ -40,6 +40,15 @@ import VideoChart from "@/components/VideoChart.vue";
 const route = useRoute();
 const { data, error, isFetching, abort } = useFetch(`/api/channels/${route.params.id}`).json();
 const { data: statData, isFetching: isFetchingStats } = useFetch(`/api/channels/${route.params.id}/video_stats`).json();
+
+const channel = computed(() => {
+  if (!data.value) {
+    return null;
+  }
+
+  return data.value.item;
+});
+
 const lastUploadDate = computed(() => {
   if (!statData?.value?.latest_video_upload_date) {
     return null;

@@ -21,6 +21,11 @@ type Error struct {
 	Reason string `json:"message"`
 }
 
+type ItemResponse struct {
+	Item  any   `json:"item"`
+	Error Error `json:"error,omitempty"`
+}
+
 type ListResponse struct {
 	// since this is single user and self-hosted we any pagination will be done from the frontend
 	Items []any `json:"items"`
