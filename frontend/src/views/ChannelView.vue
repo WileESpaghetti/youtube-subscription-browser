@@ -38,8 +38,10 @@ import {useRoute} from 'vue-router'
 import VideoChart from "@/components/VideoChart.vue";
 
 const route = useRoute();
-const { data, error, isFetching, abort } = useFetch(`/api/channels/${route.params.id}`).json();
-const { data: statData, isFetching: isFetchingStats } = useFetch(`/api/channels/${route.params.id}/video_stats`).json();
+const channelId = route.params.id;
+
+const { data, error, isFetching, abort } = useFetch(`/api/channels/${channelId}`).json();
+const { data: statData, isFetching: isFetchingStats } = useFetch(`/api/channels/${channelId}/video_stats`).json();
 
 const channel = computed(() => {
   if (!data.value) {
