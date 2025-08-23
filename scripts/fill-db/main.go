@@ -167,7 +167,7 @@ func saveThumbnails(db *sql.DB, channelID int64, thumbnails *youtube.ThumbnailDe
 }
 
 func saveThumbnail(db *sql.DB, channelID int64, size string, thumbnail *youtube.Thumbnail) error {
-	_, err := db.Exec("INSERT INTO channel_thumbnails(channel_id, size, width, height, url) VALUES(?, ?)", channelID, size, thumbnail.Width, thumbnail.Height, thumbnail.Url)
+	_, err := db.Exec("INSERT INTO channel_thumbnails(channel_id, size, width, height, url) VALUES(?, ?, ?, ?, ?)", channelID, size, thumbnail.Width, thumbnail.Height, thumbnail.Url)
 	if err != nil {
 		return err
 	}
