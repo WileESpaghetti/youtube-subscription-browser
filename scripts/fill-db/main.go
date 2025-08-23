@@ -8,11 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/youtube/v3"
 	"log"
 	"net/http"
 	"net/url"
@@ -21,6 +16,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/youtube/v3"
 )
 
 const missingClientSecretsMessage = `
@@ -120,6 +121,60 @@ func channelsListByUsername(service *youtube.Service, part string, forUsername s
 		response.Items[0].Statistics.ViewCount))
 }
 
+func saveThumbnails(db *sql.DB, channelID int64, thumbnails *youtube.ThumbnailDetails) error {
+	var tErrs []error
+
+	if thumbnails == nil {
+		return nil
+	}
+
+	if thumbnails.Default != nil {
+		err := saveThumbnail(db, channelID, "default", thumbnails.Default)
+		if err != nil {
+			tErrs = append(tErrs, fmt.Errorf("could not save thumbnail: %s : %w", "default", err))
+		}
+	}
+
+	if thumbnails.High != nil {
+		err := saveThumbnail(db, channelID, "high", thumbnails.High)
+		if err != nil {
+			tErrs = append(tErrs, fmt.Errorf("could not save thumbnail: %s : %w", "high", err))
+		}
+	}
+
+	if thumbnails.Maxres != nil {
+		err := saveThumbnail(db, channelID, "maxres", thumbnails.High)
+		if err != nil {
+			tErrs = append(tErrs, fmt.Errorf("could not save thumbnail: %s : %w", "maxres", err))
+		}
+	}
+
+	if thumbnails.Medium != nil {
+		err := saveThumbnail(db, channelID, "medium", thumbnails.Medium)
+		if err != nil {
+			tErrs = append(tErrs, fmt.Errorf("could not save thumbnail: %s : %w", "medium", err))
+		}
+	}
+
+	if thumbnails.Standard != nil {
+		err := saveThumbnail(db, channelID, "standard", thumbnails.Standard)
+		if err != nil {
+			tErrs = append(tErrs, fmt.Errorf("could not save thumbnail: %s : %w", "standard", err))
+		}
+	}
+
+	return errors.Join(tErrs...)
+}
+
+func saveThumbnail(db *sql.DB, channelID int64, size string, thumbnail *youtube.Thumbnail) error {
+	_, err := db.Exec("INSERT INTO channel_thumbnails(channel_id, size, width, height, url) VALUES(?, ?)", channelID, size, thumbnail.Width, thumbnail.Height, thumbnail.Url)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func listSubscriptions(y *youtube.Service, db *sql.DB) {
 
 	call := y.Subscriptions.List([]string{"snippet", "contentDetails", "id"}).
@@ -195,6 +250,11 @@ func populateDatabase(y *youtube.Service, db *sql.DB, channelIDs []string) {
 		if err != nil {
 			fmt.Printf("...unable to get channel row ID for subscription: %s\n", err)
 			continue // can not save topic/keyword associations if we do not have a channel
+		}
+
+		err = saveThumbnails(db, channelID, subscription.Snippet.Thumbnails)
+		if err != nil {
+			fmt.Printf("...unable to save thumbnails: %s\n", err)
 		}
 
 		if subscription.TopicDetails != nil { // work around nil pointer panic on some stuff

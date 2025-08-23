@@ -10,3 +10,13 @@ CREATE TABLE IF NOT EXISTS channels (
     video_count INTEGER NOT NULL default 0,
     UNIQUE(youtube_id) ON CONFLICT IGNORE
 );
+
+CREATE TABLE IF NOT EXISTS channel_thumbnails (
+    id INTEGER PRIMARY KEY,
+    channel_id INTEGER NOT NULL,
+    size TEXT NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    FOREIGN KEY(channel_id) REFERENCES channels(id) ON DELETE CASCADE
+)
