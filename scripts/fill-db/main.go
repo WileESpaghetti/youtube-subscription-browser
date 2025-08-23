@@ -230,15 +230,16 @@ func populateDatabase(ctx context.Context, y *youtube.Service, db *sql.DB, chann
 		insertCount += 1
 		fmt.Printf("- %d, %s (Channel ID: %s)\n", insertCount, subscription.Snippet.Title, subscription.Id)
 
-		result, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count, uploads_playlist_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		result, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count, view_count, uploads_playlist_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			subscription.Id,
 			subscription.Snippet.Title,
 			subscription.Snippet.Description,
 			subscription.Snippet.CustomUrl,
 			subscription.BrandingSettings.Channel.Title,
 			subscription.BrandingSettings.Channel.Description,
-			subscription.Statistics.ViewCount,
+			subscription.Statistics.SubscriberCount,
 			subscription.Statistics.VideoCount,
+			subscription.Statistics.ViewCount,
 			subscription.ContentDetails.RelatedPlaylists.Uploads,
 		)
 		if err != nil {
