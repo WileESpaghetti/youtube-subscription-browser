@@ -175,7 +175,7 @@ func saveThumbnail(db *sql.DB, channelID int64, size string, thumbnail *youtube.
 	return nil
 }
 
-func listSubscriptions(y *youtube.Service, db *sql.DB) {
+func listSubscriptions(ctx context.Context, y *youtube.Service, db *sql.DB) {
 
 	call := y.Subscriptions.List([]string{"snippet", "contentDetails", "id"}).
 		Mine(true).
@@ -203,19 +203,18 @@ func listSubscriptions(y *youtube.Service, db *sql.DB) {
 	}
 
 	// break here
-	populateDatabase(y, db, channelIds)
+	populateDatabase(ctx, y, db, channelIds)
 }
 
-func populateDatabase(y *youtube.Service, db *sql.DB, channelIDs []string) {
+func populateDatabase(ctx context.Context, y *youtube.Service, db *sql.DB, channelIDs []string) {
 	channels := make([]*youtube.Channel, 0, len(channelIDs))
 
 	apiIdLimit := 50 // FIXME not sure if this is documented somewhere, but I found it on a stack overflow
 	channelIdCount := 0
 	for page := range slices.Chunk(channelIDs, apiIdLimit) {
-		// FIXME add random sleep between pages
-		// FIXME how to detect if a channel has been removed? API returns no data in that case, which is confusing when counts don't align
 		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails"}).Id(page...)
-		err := call2.Pages(context.TODO(), func(page *youtube.ChannelListResponse) error {
+		err := call2.Pages(ctx, func(page *youtube.ChannelListResponse) error {
+			// FIXME compare input channel list with output channel list to see if we have any channels that are missing. YouTube API seems to just not return data for deactivated/missing channels
 			channelIdCount = channelIdCount + len(page.Items)
 			channels = append(channels, page.Items...)
 			return nil
@@ -231,7 +230,7 @@ func populateDatabase(y *youtube.Service, db *sql.DB, channelIDs []string) {
 		insertCount += 1
 		fmt.Printf("- %d, %s (Channel ID: %s)\n", insertCount, subscription.Snippet.Title, subscription.Id)
 
-		_, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+		result, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
 			subscription.Id,
 			subscription.Snippet.Title,
 			subscription.Snippet.Description,
@@ -243,13 +242,13 @@ func populateDatabase(y *youtube.Service, db *sql.DB, channelIDs []string) {
 		)
 		if err != nil {
 			fmt.Printf("...unable to save: %s\n", err)
+			continue // skip saving topic/keyword associations if we do not have a channel
 		}
 
-		// TODO get channelID
-		channelID, err := getChannelID(db, subscription.Id)
+		channelID, err := result.LastInsertId()
 		if err != nil {
 			fmt.Printf("...unable to get channel row ID for subscription: %s\n", err)
-			continue // can not save topic/keyword associations if we do not have a channel
+			continue // skip saving topic/keyword associations if we do not have an ID
 		}
 
 		err = saveThumbnails(db, channelID, subscription.Snippet.Thumbnails)
@@ -258,7 +257,7 @@ func populateDatabase(y *youtube.Service, db *sql.DB, channelIDs []string) {
 		}
 
 		if subscription.TopicDetails != nil { // work around nil pointer panic on some stuff
-			fmt.Printf("- %d, %s ...(Topics ID: %s)\n", insertCount, subscription.TopicDetails.TopicIds, subscription.Id)
+			fmt.Printf("- %d, %s ...(Topics ID: %s)\n", insertCount, subscription.TopicDetails.TopicIds, subscription.Id) // FIXME I think this is the place that was causing the nil pointer panic others handle nil correctly
 			topicIDs, err := getTopicIDs(db, subscription.TopicDetails.TopicIds)
 			if err != nil {
 				fmt.Printf("...unable to get topic ids: %s\n", err)
@@ -311,7 +310,7 @@ func getChannelID(db *sql.DB, youtubeID string) (int, error) {
 	}
 }
 
-func saveKeywordAssociations(db *sql.DB, channelID int, keywordIDs []int) error {
+func saveKeywordAssociations(db *sql.DB, channelID int64, keywordIDs []int) error {
 	// FIXME since keyword should be unique we could probably do this with an insert with select/join to automatically
 	//  fetch the ids
 	if len(keywordIDs) == 0 {
@@ -399,7 +398,7 @@ func getKeywordIDs(db *sql.DB, keywords []string) ([]int, error) {
 // splitKeywords splits the list of keywords provided by the YouTube data API.
 // The keywords are separated by a space, but if a keyword should contain
 // multiple words then those words will be quoted. This format allows us to
-// treat the keyword list as a space separated CSV record.
+// treat the keyword list as a space-separated CSV record.
 func splitKeywords(s string) ([]string, error) {
 	if len(s) == 0 {
 		return nil, nil
@@ -428,7 +427,7 @@ func splitKeywords(s string) ([]string, error) {
 	return keywords, nil
 }
 
-func saveTopicAssociations(db *sql.DB, channelID int, topicIDs []int) error {
+func saveTopicAssociations(db *sql.DB, channelID int64, topicIDs []int) error {
 	if len(topicIDs) == 0 {
 		return nil
 	}
@@ -518,10 +517,13 @@ func getChannelsFromTakeout(file string) ([]string, error) {
 	return channels, nil
 }
 
+const DATABASE_FILE = "youtube.sqlite"
+const SECRET_FILE = "client_secret.json"
+
 func main() {
 	ctx := context.Background()
 
-	b, err := os.ReadFile("client_secret.json")
+	b, err := os.ReadFile(SECRET_FILE)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -537,7 +539,7 @@ func main() {
 
 	handleError(err, "Error creating YouTube client")
 
-	dbFile := "youtube.sqlite"
+	dbFile := DATABASE_FILE
 	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on", dbFile))
 	if err != nil {
 		panic(err)
@@ -552,9 +554,9 @@ func main() {
 			fmt.Printf("can not read input file: '%s':, %s\n", os.Args[1], err)
 			os.Exit(1)
 		}
-		populateDatabase(service, db, channels)
+		populateDatabase(ctx, service, db, channels)
 	} else {
 		//channelsListByUsername(service, "snippet,contentDetails,statistics", "GoogleDevelopers")
-		listSubscriptions(service, db)
+		listSubscriptions(ctx, service, db)
 	}
 }
