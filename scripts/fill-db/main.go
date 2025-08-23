@@ -212,7 +212,7 @@ func populateDatabase(ctx context.Context, y *youtube.Service, db *sql.DB, chann
 	apiIdLimit := 50 // FIXME not sure if this is documented somewhere, but I found it on a stack overflow
 	channelIdCount := 0
 	for page := range slices.Chunk(channelIDs, apiIdLimit) {
-		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails"}).Id(page...)
+		call2 := y.Channels.List([]string{"snippet", "brandingSettings", "id", "statistics", "topicDetails", "contentDetails"}).Id(page...)
 		err := call2.Pages(ctx, func(page *youtube.ChannelListResponse) error {
 			// FIXME compare input channel list with output channel list to see if we have any channels that are missing. YouTube API seems to just not return data for deactivated/missing channels
 			channelIdCount = channelIdCount + len(page.Items)
@@ -230,7 +230,7 @@ func populateDatabase(ctx context.Context, y *youtube.Service, db *sql.DB, chann
 		insertCount += 1
 		fmt.Printf("- %d, %s (Channel ID: %s)\n", insertCount, subscription.Snippet.Title, subscription.Id)
 
-		result, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+		result, err := db.Exec("INSERT INTO channels(youtube_id, title, description, custom_url, branding_title, branding_description, subscriber_count, video_count, uploads_playlist_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			subscription.Id,
 			subscription.Snippet.Title,
 			subscription.Snippet.Description,
@@ -239,6 +239,7 @@ func populateDatabase(ctx context.Context, y *youtube.Service, db *sql.DB, chann
 			subscription.BrandingSettings.Channel.Description,
 			subscription.Statistics.ViewCount,
 			subscription.Statistics.VideoCount,
+			subscription.ContentDetails.RelatedPlaylists.Uploads,
 		)
 		if err != nil {
 			fmt.Printf("...unable to save: %s\n", err)
