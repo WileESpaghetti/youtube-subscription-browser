@@ -10,5 +10,6 @@ CREATE TABLE IF NOT EXISTS channels_keywords (
     channel_id INTEGER,
     keyword_id INTEGER,
     FOREIGN KEY(channel_id) REFERENCES channels(id),
-    FOREIGN KEY(keyword_id) REFERENCES keywords(id)
+    FOREIGN KEY(keyword_id) REFERENCES keywords(id),
+    UNIQUE(channel_id, keyword_id) ON CONFLICT IGNORE
 );
