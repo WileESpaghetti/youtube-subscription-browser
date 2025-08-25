@@ -30,6 +30,6 @@ CREATE TABLE IF NOT EXISTS video_formats (
     video_codec TEXT,
     video_ext TEXT,
     width INTEGER,
-    requested BOOLEAN
+    requested BOOLEAN,
     FOREIGN KEY(video_id) REFERENCES videos(id)
 );
