@@ -38,8 +38,8 @@ func NewFileCache(dir string) *fileCache {
 }
 
 func (fc *fileCache) Put(key string, item any) error {
-	parts := strings.Split(key, CacheKeySeparator)        // TODO maybe turn into directories?
-	fileName := strings.Join(append(parts, ".json"), "-") // FIXME might want to do some extra processing like putting stuff in directory
+	parts := strings.Split(key, CacheKeySeparator)         // TODO maybe turn into directories?
+	fileName := strings.Join(append(parts), "-") + ".json" // FIXME might want to do some extra processing like putting stuff in directory
 
 	f, err := os.Create(filepath.Join(fc.root, fileName)) // existing file will be overwritten
 	if err != nil {
