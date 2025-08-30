@@ -14,6 +14,7 @@ const defaultCacheDir = ".cache"
 type Cache interface {
 	Put(key string, item any) error
 	Get(key string) (any, error) // FIXME how to get back to original type?
+	Has(key string) bool
 	//Clear() error // TODO
 }
 
@@ -61,6 +62,15 @@ func (fc *fileCache) Get(key string) (any, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+// Has checks if the given key exists in the cache.
+// For FileCache, this means that the cache file exists, but does not necessarily mean you have permissions to read
+// it, or that it can be successfully deserialized.
+func (fc *fileCache) Has(key string) bool {
+	fileName := cacheKeyToFileName(key)
+	cacheFile := filepath.Join(fc.root, fileName)
+	_, err := os.Stat(cacheFile)
+	return err == nil
+}
 // init creates the cache directory if it doesn't exist
 func (fc *fileCache) init() error {
 	err := os.MkdirAll(fc.root, 0755)
@@ -92,6 +102,10 @@ func (nc *nullCache) Put(key string, item any) error {
 
 func (nc *nullCache) Get(key string) (any, error) {
 	return nil, nil
+}
+
+func (nc *nullCache) Has(key string) bool {
+	return false
 }
 
 // refreshCache
@@ -131,4 +145,9 @@ func (rc *refreshCache) Put(key string, item any) error {
 
 func (rc *refreshCache) Get(key string) (any, error) {
 	return nil, nil
+}
+
+func (rc *refreshCache) Has(key string) bool {
+	// wrapped cache might have it, but we want to pretend we don't, to encourage overwriting what exists
+	return false
 }
