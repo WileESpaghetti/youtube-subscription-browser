@@ -13,7 +13,7 @@ const defaultCacheDir = ".cache"
 
 type Cache interface {
 	Put(key string, item any) error
-	Get(key string) (any, error) // FIXME how to get back to original type?
+	Get(key string, item any) error
 	Has(key string) bool
 	//Clear() error // TODO
 }
@@ -58,8 +58,22 @@ func (fc *fileCache) Put(key string, item any) error {
 	return nil
 }
 
-func (fc *fileCache) Get(key string) (any, error) {
-	return nil, fmt.Errorf("not implemented")
+func (fc *fileCache) Get(key string, item any) error {
+	fileName := cacheKeyToFileName(key)
+	cacheFile := filepath.Join(fc.root, fileName)
+
+	f, err := os.Open(cacheFile)
+	if err != nil {
+		return fmt.Errorf("%s not found: %w", key, fmt.Errorf("error opening cache file: file = %s : %s\n", cacheFile, err))
+	}
+
+	jd := json.NewDecoder(f)
+	err = jd.Decode(item)
+	if err != nil {
+		return fmt.Errorf("%s not found: %w", key, fmt.Errorf("error decoding cache file: file = %s : %s\n", cacheFile, err))
+	}
+
+	return nil
 }
 
 // Has checks if the given key exists in the cache.
@@ -71,6 +85,12 @@ func (fc *fileCache) Has(key string) bool {
 	_, err := os.Stat(cacheFile)
 	return err == nil
 }
+
+func cacheKeyToFileName(key string) string {
+	// channel = channel-$ID.json
+	return strings.Join(strings.Split(key, CacheKeySeparator), "-") + ".json"
+}
+
 // init creates the cache directory if it doesn't exist
 func (fc *fileCache) init() error {
 	err := os.MkdirAll(fc.root, 0755)
@@ -100,8 +120,8 @@ func (nc *nullCache) Put(key string, item any) error {
 	return nil
 }
 
-func (nc *nullCache) Get(key string) (any, error) {
-	return nil, nil
+func (nc *nullCache) Get(key string, item any) error {
+	return fmt.Errorf("%s not found", key)
 }
 
 func (nc *nullCache) Has(key string) bool {
@@ -143,8 +163,8 @@ func (rc *refreshCache) Put(key string, item any) error {
 	return rc.cache.Put(key, item)
 }
 
-func (rc *refreshCache) Get(key string) (any, error) {
-	return nil, nil
+func (rc *refreshCache) Get(key string, item any) error {
+	return fmt.Errorf("%s not found", key)
 }
 
 func (rc *refreshCache) Has(key string) bool {
