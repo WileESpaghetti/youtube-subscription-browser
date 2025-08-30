@@ -103,8 +103,21 @@ type refreshCache struct {
 // NewRefreshCache creates a cache that allows overwriting an existing cache, but never returns anything.
 // This is useful if you want to force a cache refresh.
 // Prefer using NewCache() instead.
-func NewRefreshCache(cache Cache) *refreshCache {
-	return &refreshCache{cache: cache}
+func NewRefreshCache(cache ...Cache) *refreshCache {
+	rc := &refreshCache{}
+
+	if len(cache) == 0 {
+		rc.cache = NewCache()
+		return rc
+	}
+
+	if cache[0] == nil { // FIXME might need to jump through some hoops to find out if this is REALLY nil
+		rc.cache = NewCache()
+	} else {
+		rc.cache = cache[0]
+	}
+
+	return rc
 }
 
 func (rc *refreshCache) init() error {
