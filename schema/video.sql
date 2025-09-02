@@ -1,32 +1,26 @@
 CREATE TABLE IF NOT EXISTS videos (
     id INTEGER PRIMARY KEY,
     youtube_id TEXT NOT NULL,
-    title TEXT,
-    full_title TEXT,
-    description TEXT,
+    published_at INTEGER,
     channel_id INTEGER,
-    width INTEGER,
-    height INTEGER,
-    resolution TEXT,
-    duration INTEGER,
-    webpage_url TEXT,
-    original_url TEXT,
-    uploaded_at INTEGER,
-    availability TEXT,
-    epoch INTEGER,
-    format TEXT,
-    format_id INTEGER,
-    format_note TEXT,
-    ext TEXT,
-    file_size INTEGER,
-    tbr REAL,
-    dynamic_range TEXT,
-    video_codec TEXT,
-    vbr REAL,
-    audio_codec TEXT,
-    aspect_ratio REAL,
-    abr REAL,
-    asr INTEGER,
+    title TEXT
+        COMMENT 'Trimmed to 100 characters by the API',
+    description TEXT
+        COMMENT 'Trimmed to 5000 bytes by the API'
+    category_id TEXT,
+    duration TEXT,
+    definition TEXT,
+    is_licensed_content BOOLEAN,
+    privacy_status TEXT,
+
+    -- statistics: this is less useful the closer to the published_at date
+    view_count INTEGER,
+    like_count INTEGER,
+    dislike_count INTEGER,
+    favorite_count INTEGER,
+    comment_count INTEGER,
+
+    is_archived BOOLEAN DEFAULT FALSE,
 
     FOREIGN KEY(channel_id) REFERENCES channels(id),
     UNIQUE(youtube_id) ON CONFLICT IGNORE
