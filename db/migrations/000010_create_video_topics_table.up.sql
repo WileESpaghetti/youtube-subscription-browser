@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS video_topics (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    url TEXT,
+    UNIQUE(url) ON CONFLICT IGNORE
+);

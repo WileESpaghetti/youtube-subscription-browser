@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS keywords (
+    id INTEGER PRIMARY KEY,
+    keyword VARCHAR(255) NOT NULL,
+    UNIQUE(keyword) ON CONFLICT IGNORE
+);

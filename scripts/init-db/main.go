@@ -1,54 +1,50 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+	"log"
 	"os"
-	"path/filepath"
-	"strings"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jacob2161/sqlitebp"
 )
 
-func main() {
-	dbFile := "youtube.sqlite"
-	schemaDir := "schema"
+const defaultDatabaseFile = "youtube-migrations.sqlite"
+const defaultMigrationsDir = "db/migrations"
 
-	fmt.Printf("creating database: %s\n", dbFile)
-	db, err := sql.Open("sqlite3", dbFile)
+func main() {
+	// TODO convert database and migrations directory to absolute paths
+	var dbFile string
+	if len(os.Args) > 1 {
+		dbFile = os.Args[1]
+	} else {
+		dbFile = defaultDatabaseFile
+	}
+
+	schemaDir := defaultMigrationsDir
+
+	db, err := sqlitebp.OpenReadWriteCreate(dbFile)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer db.Close()
 
-	fmt.Printf("getting schema from: %s\n", schemaDir)
-	files, err := os.ReadDir(schemaDir)
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "failed to read directory: %s\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
-	fmt.Printf("finished getting schema from: %s\n", schemaDir)
+	defer driver.Close()
 
-	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".sql") {
-			fmt.Printf("skipping non-sql file: %s\n", file.Name())
-			continue
-		}
-
-		filePath := filepath.Join(schemaDir, file.Name())
-		fmt.Printf("Executing %s\n", filePath)
-
-		sqlBytes, err := os.ReadFile(filePath)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "failed to read SQL file %s: %s\n", filePath, err)
-			os.Exit(1)
-		}
-
-		_, err = db.Exec(string(sqlBytes))
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "failed to execute SQL from %s: %s\n", filePath, err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Finished executing %s\n", filePath)
+	m, err := migrate.NewWithDatabaseInstance("file://"+schemaDir, "sqlite3", driver)
+	if err != nil {
+		log.Fatal(err)
 	}
+	err = m.Up()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Database initialized.")
 }
