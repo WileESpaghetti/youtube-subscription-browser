@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS video_categories (
     id INTEGER PRIMARY KEY,
-    youtube_id VARCHAR(255) NOT NULL, -- These are numeric, but the API returns strings, so we'll store as a string to make lookups easier
-    title VARCHAR(255) NOT NULL,
+    youtube_id TEXT NOT NULL, -- These are numeric, but the API returns strings, so we'll store as a string to make lookups easier
+    title TEXT NOT NULL,
     assignable BOOLEAN NOT NULL
 );
 

@@ -1,9 +1,9 @@
 -- https://developers.google.com/youtube/v3/docs/channels#topicDetails.topicIds[]
 CREATE TABLE IF NOT EXISTS channel_topics (
     id INTEGER PRIMARY KEY,
-    type VARCHAR(255),
-    topic_id VARCHAR(255) NOT NULL UNIQUE,
-    description VARCHAR(255) NOT NULL DEFAULT '',
+    type TEXT,
+    topic_id TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
     UNIQUE (topic_id) ON CONFLICT IGNORE
 );
 
