@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS channels (
     video_count INTEGER NOT NULL default 0,
     view_count INTEGER NOT NULL default 0,
     uploads_playlist_id TEXT,
-    UNIQUE(youtube_id) ON CONFLICT REPLACE
+    UNIQUE(youtube_id) ON CONFLICT IGNORE
 );

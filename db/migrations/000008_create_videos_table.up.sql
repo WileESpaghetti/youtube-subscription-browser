@@ -23,5 +23,5 @@ CREATE TABLE IF NOT EXISTS videos (
     comment_count INTEGER,
     is_archived BOOLEAN DEFAULT FALSE,
     FOREIGN KEY(channel_id) REFERENCES channels(id) ON DELETE CASCADE,
-    UNIQUE(youtube_id) ON CONFLICT REPLACE
+    UNIQUE(youtube_id) ON CONFLICT IGNORE
 );

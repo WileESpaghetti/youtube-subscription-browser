@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS channel_thumbnails (
     height INTEGER NOT NULL,
     url TEXT NOT NULL,
     FOREIGN KEY(channel_id) REFERENCES channels(id) ON DELETE CASCADE,
-    UNIQUE(channel_id, size) ON CONFLICT REPLACE
+    UNIQUE(channel_id, size) ON CONFLICT IGNORE
 );
