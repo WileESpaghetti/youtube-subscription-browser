@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS videos (
     description TEXT
         COMMENT 'Trimmed to 5000 bytes by the API',
     category_id TEXT,
-    duration TEXT,
+    duration INTEGER,
     definition TEXT,
     is_licensed_content BOOLEAN,
     privacy_status TEXT,
