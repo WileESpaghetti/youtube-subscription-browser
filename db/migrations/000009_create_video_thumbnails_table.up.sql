@@ -5,5 +5,6 @@ CREATE TABLE IF NOT EXISTS video_thumbnails (
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
     url TEXT NOT NULL,
-    FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE
+    FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE,
+    UNIQUE (video_id, size) ON CONFLICT IGNORE
 )
