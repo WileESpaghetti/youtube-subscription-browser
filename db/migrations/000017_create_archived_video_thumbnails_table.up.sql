@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS archived_video_thumbnails (
     resolution TEXT,
     index_id TEXT,
     preference INTEGER,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
+    width INTEGER,
+    height INTEGER,
     url TEXT NOT NULL,
     file_name TEXT,
     FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE

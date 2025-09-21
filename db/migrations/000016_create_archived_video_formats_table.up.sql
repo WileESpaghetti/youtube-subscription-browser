@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS archived_video_formats (
     audio_ext TEXT,
     columns INTEGER,
     container TEXT,
-    duration INTEGER,
     dynamic_range TEXT,
     ext TEXT,
     filesize INTEGER,
