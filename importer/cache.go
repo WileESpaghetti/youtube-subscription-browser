@@ -11,6 +11,12 @@ import (
 const CacheKeySeparator = ":"
 const defaultCacheDir = ".cache"
 
+type CacheError struct{}
+
+func (e *CacheError) Error() string {
+	return "cache error"
+}
+
 type Cache interface {
 	Put(key string, item any) error
 	Get(key string, item any) error
